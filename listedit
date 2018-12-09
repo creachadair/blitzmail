@@ -1,0 +1,379 @@
+#!/usr/bin/env python
+##
+## Name:     listedit
+## Purpose:  Allow editing of public or group e-mail lists in BlitzMail
+##
+## Copyright (C) 2004-2006 Michael J. Fromberger, All Rights Reserved.
+##
+
+import os, pwd, re, sys
+import atexit
+import dnd, BlitzMail
+
+from getpass import getpass
+from getopt import getopt, GetoptError
+from tempfile import mkstemp
+from signal import signal as catch_signal, SIGINT, SIG_IGN
+
+# Cleanup function for temporary files
+def cleanup_temp_file(path):
+    try:
+        os.unlink(path)
+    except:
+        pass
+
+# Extract a sort key from a mailing address
+def list_key(addr):
+    if '@' in addr:
+        m = re.match(r'(.+)@([-\w.]+)(?:\s*\((.+)\))?', addr.strip())
+        name = m.group(1).split('.')
+        host = m.group(2)
+        comment = m.group(3) and m.group(3).strip()
+        
+        if len(name) < 2 and comment:
+            name = re.split('\s+', comment)
+        
+        while len(name) > 1 and \
+              re.match(r'(?i)(?:\'?\d+|i{2,3}|iv|jr\.?|\w+\d+|\'\w+)$',
+                       name[-1]):
+            name.pop()
+        
+        return name[-1].lower()
+    else:
+        # This should not be able to fail
+        m = re.match(r'([\w\s.\']+)(?:\((.+)\))?', addr.strip())
+        name = re.split('[\s.]+', m.group(1).strip())
+        comment = m.group(2) and m.group(2).strip()
+        
+        while len(name) > 1 and \
+                  re.match(r'(?i)(?:\'?\d+|i{2,3}|iv|jr\.?|\'\w+)$',
+                           name[-1]):
+            name.pop()
+        
+        return name[-1].lower()
+
+# Load an import file
+def load_imports(fname):
+    fp = file(fname, 'rU')
+    data = {} ; key = None
+
+    for line in fp:
+        if line.startswith('#') or line.strip() == '': continue
+
+        if line[0].isspace() and key is not None:
+            data.setdefault(key, []).append(line.strip())
+        else:
+            key = line.strip()
+    
+    return data
+
+def main():
+    # Read the user's EDITOR environment variable, or use a default
+    editor_name = os.getenv('EDITOR') or 'vi'
+    
+    # Obtain default username
+    user_name   = os.getenv('USERNAME') or \
+                  pwd.getpwuid(os.getuid()).pw_gecos.split(',')[0]
+
+    # Defaults
+    list_type   = 'private'   # Should be 'private' or 'group'
+    list_create = False       # Attempt to create a new list?
+    list_sort   = False       # Sort the list before editing?
+    list_norm   = False       # Normalize bare names?
+    list_action = 'edit'      # Should be 'edit', 'list', 'remove', or 'view'
+    dnd_host    = None        # None means to use the default
+    debug       = os.getenv('DEBUG') is not None
+
+    try:
+        (opts, args) = getopt(sys.argv[1:], 'cd:Dghilnprsu:v',
+                              ( "create", "dnd=", "dump", "group", "help",
+                                "import", "list", "normalize",
+                                "private", "remove", "sort", "user=",
+                                "view" ))
+        
+    except GetoptError, e:
+        print >> sys.stderr, \
+              "Error: %s\n  -- use `listedit -h' for help" % e
+        sys.exit(1)
+    
+    for (key, arg) in opts:
+        if key in ( '-h', '--help' ):
+            print >> sys.stderr, \
+                  "Usage: listedit <listname>\n" \
+                  """
+Command line options include:
+ -c | --create          - Attempt to create the list if it doesn't exist.
+ -d | --dnd <dnd-host>  - Specify the name directory (DND) host name.
+ -D | --dump            - Dump all private list contents as text (listname is
+                          output file; otherwise written to standard output).
+ -g | --group           - Apply actions to group lists.
+ -h | --help            - Display this help message.
+ -i | --import          - Import private list contents (listname is input file).
+ -l | --list            - List available list names.
+ -n | --normalize       - Normalize bare names against the DND.
+ -p | --private         - Apply actions a private lists (default).
+ -r | --remove          - Delete the specified list from the server.
+ -s | --sort            - Sort the list before editing.
+ -u | --user <username> - Specify user to log in as.
+ -v | --view            - Only view the list, do not edit it.
+
+If not specified, the user's sign-on name will be obtained by reading
+the GECOS field for the current user's UID.  The DND_PASSWORD
+environment variable will be consulted for the password; if absent,
+the user will be prompted at the terminal.
+
+The EDITOR environment variable will be consulted, if defined.
+Presently, the editor is set to "%s"
+""" % editor_name
+            sys.exit(0)
+        elif key in ( '-c', '--create' ):
+            list_create = True
+        elif key in ( '-D', '--dump' ):
+            list_action = 'dump'
+        elif key in ( '-g', '--group' ):
+            list_type = 'group'
+        elif key in ( '-i', '--import' ):
+            list_action = 'import'
+        elif key in ( '-n', '--normalize' ):
+            list_norm = True
+        elif key in ( '-p', '--private' ):
+            list_type = 'private'
+        elif key in ( '-u', '--user' ):
+            user_name = arg
+        elif key in ( '-d', '--dnd' ):
+            dnd_host = arg
+        elif key in ( '-l', '--list' ):
+            list_action = 'list'
+        elif key in ( '-r', '--remove' ):
+            list_action = 'remove'
+        elif key in ( '-s', '--sort' ):
+            list_sort = True
+        elif key in ( '-v', '--view' ):
+            list_action = 'view'
+    
+    # Check for required list-name argument
+    if list_action not in ('dump', 'list') and len(args) == 0:
+        print >> sys.stderr, "List name not provided; " \
+              "use `listedit --help' for help."
+        sys.exit(1)
+
+    list_name = str.join(' ', args)
+
+    user_passwd = None
+    if not os.getenv('DND_PASSWORD'):
+        user_passwd = getpass("Password for %s: " % user_name)
+
+    # Connect to the BlitzMail server
+    try:
+        blitz = BlitzMail.BlitzSession(dnd = dnd_host, debug = debug,
+                                       pw_env = 'DND_PASSWORD')
+    
+        blitz.sign_on(user_name, user_passwd, push_off = True)
+    except BlitzMail.SessionError, e:
+        print >> sys.stderr, \
+              "Error connecting to BlitzMail: %s" % e
+        sys.exit(1)
+
+    # If listing, just grab the list names themselves, and don't bother to
+    # go any further.
+    if list_action in ('dump', 'list'):
+        if list_name:
+            try:
+                fp = file(list_name, 'w')
+            except (IOError, OSError), e:
+                print >> sys.stderr, "Error opening output file %s: %s" % \
+                      (list_name, e)
+                sys.exit(1)
+        else:
+            fp = sys.stdout
+        
+        try:
+            if list_type == 'group':
+                if list_action == "dump":
+                    print >> sys.stderr, "Cannot dump public lists, sorry."
+                    sys.exit(1)
+                lsts = blitz.get_group_lists()
+            else:
+                lsts = blitz.get_private_lists()
+            
+            print >> fp, "## %d %s list%s" % ( len(lsts), list_type,
+                                               len(lsts) <> 1 and "s" or "" )
+            for lst in lsts:
+                print >> fp, lst.name
+                if list_action == 'dump':
+                    print >> fp, '\t', '\n\t'.join(lst.get_members())
+            
+            sys.exit(0)
+        except BlitzMail.SessionError, e:
+            print >> sys.stderr, "Error reading %s list names: %s" % \
+                  ( list_type, e)
+            sys.exit(1)
+
+    # If importing, use the list name as an import file name, and read it.
+    if list_action == 'import':
+        try:
+            lsts = load_imports(list_name)
+        except (IOError, OSError), e:
+            print >> sys.stderr, "Error loading imports from %s: %s" % \
+                  (list_name, e)
+            sys.exit(1)
+
+        print >> sys.stderr, "Importing %d list%s loaded from %s" % \
+              (len(lsts), (len(lsts) <> 1 and "s" or ""), list_name)
+        for (pos, (name, members)) in enumerate(lsts.iteritems()):
+            print >> sys.stderr, "%d. %s, %d member%s" % \
+                  (pos + 1, name, len(members),
+                   (len(members) <> 1 and "s" or ""))
+            lst = blitz.create_private_list(name)
+            lst.set_members(members)
+        
+        sys.exit(0)
+    
+    # Load the existing contents of the specified list
+    try:
+        if list_type == 'group':
+            if list_create:
+                m_list = blitz.create_group_list(list_name)
+            else:
+                m_list = blitz.get_group_list(list_name)
+        else:
+            if list_create:
+                m_list = blitz.create_private_list(list_name)
+            else:
+                m_list = blitz.get_private_list(list_name)
+
+        if list_norm:
+            d = dnd.DNDSession(dnd_host)
+            d.default_fields = ( 'name', 'deptclass' )
+            
+            members = []
+            for name in m_list.get_members():
+                if '@' in name:
+                    members.append(name)
+                    continue
+                
+                m = re.search('\((.+)\)', name)
+                comment = m and m.group(1)
+
+                try:
+                    m = d[re.sub('\(.+\)', '', name)]
+                    if m:
+                        if comment:
+                            members.append('%s (%s)' % (m.name, comment.strip()))
+                        else:
+                            members.append('%s (%s)' % (m.name, m.deptclass))
+                    else:
+                        members.append(name)
+                except dnd.DNDError, e:
+                    print >> sys.stderr, \
+                          "Warning:  Unable to resolve %s (%s)" % \
+                          (name, e)
+                    members.append(name)
+        else:
+            members = m_list.get_members()
+        
+        if list_sort:
+            members = sorted(members, key = list_key)
+        
+    except BlitzMail.SessionError, e:
+        print >> sys.stderr, "Error loading mailing list: %s" % e
+        sys.exit(1)
+
+    except KeyError:
+        print >> sys.stderr, "%s mailing list `%s' does not exist." % \
+              ( list_type.capitalize(), list_name )
+        sys.exit(1)
+
+    # If the user only wants to view the list, dump that and exit now.
+    if list_action == 'view':
+        print '## %d member%s of %s list "%s"' % \
+              ( len(members), (len(members) <> 1 and "s" or ""),
+                list_type, m_list.name )
+    
+        for m in members:
+            print m
+    
+        sys.exit(0)
+
+    elif list_action == 'remove':
+        try:
+            m_list.remove()
+            print >> sys.stderr, "%s mailing list `%s' deleted." % \
+                  ( list_type.capitalize(), m_list.name )
+            sys.exit(0)
+        except BlitzMail.SessionError, e:
+            print >> sys.stderr, \
+                  "Error removing %s mailing list `%s': %s" % \
+                  ( list_type.capitalize(), m_list.name, e )
+            sys.exit(1)
+
+    # Write the list contents out to a text file, and run the editor
+    fd, path = mkstemp()
+    atexit.register(cleanup_temp_file, path)
+
+    fp = os.fdopen(fd, 'r+')
+    fp.seek(0)
+
+    data = str.join('\n', members) + '\n'
+    fp.write(data)
+    fp.flush()
+
+    print >> sys.stderr, "[waiting for editor]"
+    save_handler = catch_signal(SIGINT, SIG_IGN)
+    os.spawnlp(os.P_WAIT, editor_name, editor_name, path)
+    catch_signal(SIGINT, save_handler)
+
+    fp.seek(0)
+    new_data = fp.read()
+
+    # Check whether anything has changed
+    if new_data == data and not list_sort:
+        print "No changes."
+        sys.exit(0)
+    
+    while True:
+        sys.stderr.write("Save changes [y]/n? ")
+        ans = sys.stdin.readline()
+
+        # EOF during read counts as a cancel
+        if not ans:
+            ans = 'n'
+            break
+        
+        ans = ans.strip().lower()
+        
+        # Empty non-EOF counts as default "yes"
+        if not ans:
+            ans = 'y'
+            break
+    
+        if ans in ( 'y', 'yes', 'n', 'no' ):
+            ans = ans[0]
+            break
+        else:
+            print >> sys.stderr, "I'm sorry, I do not understand `%s'" % ans
+
+    if ans == 'n':
+        print >> sys.stderr, "Changes discarded."
+        sys.exit(0)
+
+    try:
+        new_members = new_data.strip().split('\n')
+    
+        m_list.set_members(new_members)
+        print >> sys.stderr, "Changes saved to %s list `%s'." % \
+              ( list_type, m_list.name )
+    except BlitzMail.SessionError, e:
+        print >> sys.stderr, "Error while saving new list data: %s" % e
+        print >> sys.stderr, "Data lost:"
+        print '\n'.join(new_members)
+        sys.exit(1)
+    
+    blitz.close()
+    del blitz
+    sys.exit(0)
+
+if __name__ == '__main__':
+    main()
+
+# Here there be dragons

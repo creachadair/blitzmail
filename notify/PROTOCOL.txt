@@ -1,0 +1,239 @@
+Name:     PROTOCOL.txt
+Purpose:  A description of the BlitzMail notification protocol.
+
+Copyright (C) 2004-2006 Michael J. Fromberger, All Rights Reserved.
+
+Disclaimer:
+ The information in this document was obtained by reverse engineering.
+ I therefore cannot warrant that it is either complete or correct,
+ except insofar as my implementation based on these notes does appear
+ to work for the cases I have tested.
+
+-- Background
+
+The BlitzMail system provides asynchronous notification of interesting
+events such as the arrival of new e-mail or bulletins.  A client who
+wants to be notified of these events will register its network address
+with a datagram-based notification server, which sends a brief message
+to the client when one of these events occurs.
+
+The BlitzMail system was originally designed in 1987 and 1988, for
+Apple Macintosh computers using a 230Kbps LocalTalk network.  The
+design of the notification subsystem seems to have been motivated by a
+desire to keep down the number of concurrent TCP streams open to each
+server.  In a network with thousands of users, this was (and is) a
+real practical concern.  The protocol was designed before the
+Macintosh had a TCP/IP implementation, however -- so the packet
+formats and protocol rules are still based on AppleTalk, even now that
+the servers use UDP/IP.
+
+-- Interfaces
+
+There are two network interfaces for the notification services, one
+using TCP, the other using UDP.  The TCP interface allows a client to
+connect, authenticate on behalf of a user, and post events to be sent
+out via the UDP notification inteface.  The UDP interface is where a
+client connects when it wishes to receive notices of events that have
+been posted.
+
+The TCP interface listens on port 2152 ("dartnotify"), and implements
+a text-based line-oriented protocol similar to that of BlitzMail or
+the Dartmouth Name Directory.  The command format for the TCP
+interface is:
+
+  <command> ' ' <args> CRLF
+
+That is, a single line of text, ending in CRLF, consisting of a
+command, and, if appropriate, a sequence of arguments separated from
+the command by a single ASCII space.  Responses from the server have
+the format
+
+  <code> ' ' <desc> CRLF
+
+The <code> is a 3-digit response code, the <desc> is a human readable
+text string describing what the code means.
+
+The commands understood by the TCP notification server are:
+
+Command    Arguments
+CLEAR      <uid> ',' <type>
+NOOP       none
+NOTIFY     <len> ',' <uid> ',' <type> ',' <msgid> ',' <sticky> CRLF <data>
+PASE       <passcode>
+PASS       <password>
+QUIT       none
+USER       <userid>
+
+Meanings:
+  <uid>      Numeric user ID (the UID field from the DND for this user)
+  <type>     Code indicating notification type [1]
+  <len>      Length of message data (non-negative integer)
+  <msgid>    Numeric message ID (non-negative integer)
+  <sticky>   Boolean, message is "sticky" [2]
+  <data>     Arbitrary character data, <len> bytes
+  <passcode> Encrypted response to authentication challenge [3]
+  <password> Plaintext user password (DEPRECATED)
+  <userid>   User name or numeric UID (specified as "#nnnnn")
+
+[1]  1 = mail, 2 = news, 3 = talk, other values undefined.
+[2]  0 = not sticky, 1 = sticky
+[3]  24 octal digits encoded in ASCII
+
+A note about "sticky" notifications: 
+
+Some notifications are "sticky", others are not.  If a notification is
+sticky, then after it is delivered once, the server keeps it in the
+queue of pending notifications, and will send it again the next time a
+client registers on behalf of the same user.  If a notification is not
+sticky, it will be removed from the queue after it is delivered once
+to the client.
+
+Sticky notifications can be cleared by using the "CLEAR" command.
+Most notifications are sticky by default.  Presumably the idea is that
+even if the notification has been received, the user might not have
+responded to it, so it should be kept until the user does something
+explicit to remove it (e.g., signing on to BlitzMail to read the
+message in question).
+
+Command descriptions:
+
+CLEAR  --   clear sticky notifications for the specified user and
+	    service.  If the service code is < 0, all notifications for
+	    this user are cleared.
+
+NOOP   --   do nothing; keeps the session alive.
+
+NOTIFY --   post a new notification for the given user and service.
+	    Up to 578 characters of data may be given (that is the limit
+	    of a single ATP datagram).
+	    Responses:  200 <note-id>, 501 Bad argument.
+
+USER   --   authenticate as the given user.  The server responds with
+	    a random challenge from the DND.
+	    Responses:  300 <challenge>, 550 Bad user name, 
+                        450 DND not available.
+
+PASE   --   the encryption of the random challenge with the user's 
+	    password (as with the DND).
+	    Responses:  200 User validated, 550 Bad password.
+
+PASS   --   the user's plaintext password.  You should never use this,
+	    not even for testing.  I shouldn't even have documented it.
+
+QUIT   --   disconnect from the server.
+	    Responses:  221 Bye now!
+
+The UDP interface listens on port 2154 ("dartnotify-me"), and uses a
+simple subset of the AppleTalk Transaction Protocol (ATP) to send
+notifications and receive commands.  Each interaction between the
+client and server has three stages:
+
+1. Request  -- one side sends a request packet to the other.
+2. Response -- the receiver sends back one or more responses.
+3. Release  -- the originator acknowledges receipt of the response.
+
+Because ATP is built on top of an unreliable datagram protocol
+(originally DDP, now UDP), it is possible that one or more of these
+packets may be lost, and will have to be retransmitted.  If the
+originator of a request does not get a response for a while, he should
+re-send it.  If the receiver does not get a release, he should re-send
+the response.  If the originator gets another copy of the same
+response, he should re-send the release.
+
+ATP allows transaction responses to contain up to 8 packets, but all
+the responses in the notification protocol are exactly one packet.
+
+Each message is a single UDP datagram in the following format:
+
+Offset  Size          Content
+0       1             0x03    (DDP packet type for ATP)
+1       1             ATP control flags
+2       1             Bitmap/sequence number
+3       2             Transaction ID
+5       4             Command data
+6       n             Packet data
+
+The ATP control flags byte is a bit vector:
+
+Bits    Content
+0       DDP checksum is valid
+1       Transaction ID is set
+2       Extended parameter block in use
+3       Send transmission status (STS)
+4       End-of-message (EOM)
+5       Exactly-once (XO)
+6-7     Packet type (01 = Request, 10 = Response, 11 = Release)
+
+The bitmap/sequence number has different meanings depending on whether
+this is a request or a response.  For the request, it tells the
+receiver how many packets are expected in response (up to 8, although
+for the Notify protocol, it is only ever 1).  For the response, it is
+the sequence number of the packet being sent.
+
+The transaction ID is a 16-bit value used to tag each packet of a
+single transaction.  The same TID is used for the request, all the
+response packets, and the release.
+
+Notify requests have to be sent in XO (exactly once) mode.  The user
+bytes are used to store the command.  The commands understood by the
+UDP notification interface are:
+
+  NR02   -- registration request ("I want notifications for user X")
+  CLEN   -- clear sticky notification
+
+The notification server initiates transactions with the following
+codes:
+
+  NOTI   -- notification transaction ("Notification for user X, service Y")
+  0000   -- reset ("Go find a new notification server")
+
+Note that this last command (0000) consists of four NUL bytes (0x00),
+not four ASCII zeroes (0x30).
+
+To generate a response packet from a request packet, set the packet
+type from REQUEST (01) to RESPONSE (10), discard the packet data, and
+leave everything else alone.  To generate a release packet from a
+response packet, set the packet type from RESPONSE (10) to RELEASE
+(11), discard the packet data, and leave everything else alone.
+
+-- Other Notes
+
+The notification protocol as currently implemented does not require
+any authentication for posting or receiving notifications.  To post a
+notification for a given user, a client need only find the name of the
+user's notification server, which is given as the NOTIFYSERV field of
+the DND.  The existing notify implementation doesn't allow a user to
+send notifications or register to receive them, without authenticating
+against the DND; but that is a nicety, not a protocol requirement.
+
+Posting a notification to an arbitrary user:
+
+  from BlitzMail import notify
+  import dnd
+
+  rec = dnd.lookup_unique('username', ('uid', 'notifyserv'))
+
+  notify_host = rec.notifyserv.split('@')[0]
+
+  s = notify.NotifySession()
+  s.connect(notify_host)
+  s.post_notify('mail', data = "All your base are belong to us.", 
+                uid = rec.uid, sticky = True)
+  s.close()
+
+Receiving notification for an arbitrary user:
+
+  from BlitzMail import notify
+
+  c = notify.NotifyClient('username', ('mail', 'news', 'talk'))
+  c.start()
+
+  note = c.next(10) # Wait up to 10 seconds for a notification
+
+  c.stop()
+
+This is probably not a major problem, but it does permit denial of
+service (clearing sticky notifications before they are seen by their
+intended user) and notification flooding.
+
+

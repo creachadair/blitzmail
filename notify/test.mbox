@@ -1,0 +1,16 @@
+From username@domain.net  Sun May 22 04:37:39 2005
+Return-Path: <username@domain.net>
+Date: Sat, 21 May 2005 14:22:14 -0400
+Subject: This is the subject line
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+From: "J. Q. Public" <username@domain.net>
+To: "Your Name Here" <Your.E.Mail@Hostname.NET>
+Content-Transfer-Encoding: 7bit
+Status: RO
+
+Hello,
+
+This is a message to test the procnotify.py script.  You should pipe
+it to the program with appropriate options.
+
+

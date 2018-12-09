@@ -1,0 +1,89 @@
+Bulletin protocol notes
+
+Bulletins are summarized by the server in a compact CSV text format,
+thus:
+
+  <name>,"<title>",<monitor>,<post>,<available>,<last-seen>,<read>
+
+These are:
+<name>		The Usenet compatible name of the topic,
+		e.g., dartmouth.bulletins.unix
+
+<title>		A human-readable descriptive title, spaces allowed.
+
+<monitor>       Y or N, indicating whether the current user monitors this
+		topic for updates.
+
+<post>		Y or N, indicating whether the current user is allowed
+		to post new articles to this topic.
+
+<available>	A string of the form "\d+-\d+", giving the range of 
+		article numbers currently available on the server.
+		Generally, this is the smallest interval containing 
+		all the available articles.
+
+<last-seen>	The highest-numbered article ID the client has seen
+		before.  Set by the client.
+
+<read>		A description of what articles have been read.
+
+The <read> information is a quoted string consisting of one or more
+comma delimited integers or integer ranges, describing the article
+numbers which have been read.  Appended to this sequence is a
+semicolon and a signed integer value, whose purpose I have not yet
+discerned.
+
+Examples:
+  2401;+0            # Article 2401 has been read, others unread.
+  2399,2402;+0       # Articles 2399 and 2402 have been read, others unread.
+  2399-2400,2402;+0  # Articles 2399, 2400, and 2402 read; others unread.
+
+When the client downloads the list of all bulletin topics (using the
+LSTB command), the <available>, <last-seen>, and <read> values might
+not be correct.  The BULL command should be used to obtain up to date
+values for any individual topic name.
+
+-- Protocol Commands
+
+Synopsis        Expected response    Comments
+USER <name>     300                  Login, provide DND name.
+UID# <uid>	300		     Login, provide DND UID.
+PASE <pw>	210		     Password, encrypted.
+PASS <pw>	210		     Password, plaintext (avoid).
+KRB4 <ticket>	210		     Kerberos 4 ticket.
+LSTB		260		     List available topics [lines].
+NEWB		290		     New bulletin arrivals [lines].
+WHAT <topic>	200		     Topic "about" text [lines].
+ADDB <topic>	240		     Monitor this topic.
+REMB <topic>	270		     Stop monitoring this topic.
+BULL <topic>	290		     Topic info line [lines].
+UPDT <top>,L,R	280		     Update user/topic info.
+GROUP <topic>	211		     Select group [count fromID toID topic].
+XHEAD N[-T]	221		     Article headers [lines].
+HEAD <id>	221		     Article headers [ID ?? note \\ lines].
+BODY <id>	222		     Article body [ID ?? note \\ lines].
+ARTICLE <id>	220		     Article head/body [ID ?? note \\ lines].
+TOD		200		     Wdy, dd Mon YYYY HH:MM:SS [-+]OFST
+NOOP		000		     Will sustain connexion.
+HELP		201		     Help text [lines].
+QUIT		<disconnect>	     Disconnect from server.
+
+The protocol is used by BlitzMail in the following manner:
+
+1. Sign on, using UID#/PASE or KRB4.
+
+2. Use NEWB to get a list of new bulletin arrivals.
+
+3. Use GROUP/XHEAD to obtain the header information for the new
+   arrivals.
+
+4. When needed, use LSTB to obtain a complete topic listing for
+   display in the "Bulletins" window.
+
+To fetch an article, use ARTICLE, or HEAD/BODY.
+
+To update the <last-seen> and <read> fields, use UPDT.
+
+To subscribe to a bulletin, use ADDB; to unsubscribe, REMB.
+
+To get the time of day from the server, use TOD.

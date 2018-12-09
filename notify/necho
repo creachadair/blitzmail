@@ -1,0 +1,99 @@
+#!/usr/bin/env python
+
+## Name:     necho
+## Purpose:  Echo a notification to the specified user.
+##
+## Copyright (C) 2004-2006 Michael J. Fromberger, All Rights Reserved.
+##
+import dnd, os, pwd, re, sys
+from BlitzMail import notify
+from getopt import getopt, GetoptError
+
+def main():
+    # Defaults
+    user_name   = None
+    note_type   = "mail"
+    note_sticky = False
+    debug       = os.getenv('DEBUG') is not None
+    notify_serv = None
+    
+    try:
+        (opts, args) = getopt(sys.argv[1:], 'd:hH:st:u:',
+                              ( "dnd=", "help", "host=", "sticky",
+                                "type=", "user=" ))
+    except GetoptError, e:
+        print >> sys.stderr, \
+              "Error: %s\n  -- use `necho -h' for help" % e
+        sys.exit(1)
+    
+    for key, arg in opts:
+        if key in ( '-h', '--help' ):
+            print >> sys.stderr, \
+                  "Usage: necho [options] <message>\n" \
+                  """
+Command line options include:
+ -d | --dnd <host>      - Specify alternate DND host.
+ -h | --help            - Display this help message.
+ -H | --host <host>     - Specify a specific notification server.
+ -s | --sticky          - Message is sticky (recurring).
+ -t | --type <code>     - Set notification type (default is '%s').
+ -u | --user <userid>   - Set target user ID (name or UID).
+
+If not specified, the user's name will be obtained by reading the
+GECOS field for the current user's UID.
+""" % note_type
+            sys.exit(0)
+        elif key in ( '-d', '--dnd' ):
+            dnd_host = arg
+        elif key in ( '-H', '--host' ):
+            notify_serv = arg
+        elif key in ( '-s', '--sticky' ):
+            note_sticky = True
+        elif key in ( '-t', '--type' ):
+            note_type = arg
+        elif key in ( '-u', '--user' ):
+            user_name = arg
+    
+    if user_name is None:
+        if notify_serv:
+            print >> sys.stderr, \
+                  "You specified a notification server but no user ID."
+            sys.exit(1)
+        else:
+            user_name   = os.getenv('USERNAME') or \
+                          pwd.getpwuid(os.getuid()).pw_gecos.split(',')[0]
+    
+    if len(args) == 0:
+        print >> sys.stderr, "Usage:  necho [options] <message>+"
+        sys.exit(1)
+    
+    message = ' '.join(args)
+    if notify_serv is None:
+        try:
+            d = dnd.DNDSession(debug = debug)
+            user_info = d.lookup_unique(user_name, "name", "uid", "notifyserv")
+            d.close()
+        except dnd.DNDError, e:
+            print >> sys.stderr, "Error looking up '%s' in the DND: %s" % \
+                  (user_name, e)
+            sys.exit(1)
+    else:
+        user_info = {'uid': user_name,
+                     "notifyserv": notify_serv}
+    
+    try:
+        s = notify.NotifySession(debug = debug)
+        s.connect(user_info['notifyserv'].split('@')[0])
+        
+        s.post_notify(note_type, data = message, uid = user_info['uid'],
+                      sticky = note_sticky)
+    except notify.BlitzNotifyError, e:
+        print >> sys.stderr, "Error sending notification: %s" % e
+        sys.exit(1)
+
+    s.close()
+
+if __name__ == '__main__':
+    main()
+
+# Here there be dragons

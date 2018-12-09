@@ -1,0 +1,246 @@
+#!/usr/bin/env python
+
+##
+## Name:     blitz2mbox
+## Purpose:  Archive BlitzMail folders to Unix "mbox" format.
+##
+## Copyright (C) 2004-2006 Michael J. Fromberger, All Rights Reserved.
+##
+## Usage:
+##   blitz2mbox [options] <folder-names>*
+##
+## Download specified folder names.  Enquote names with spaces.  If no
+## folders are specified, the "In Box" is dumped.
+##
+
+import dnd, re, time
+
+def fname_to_filename(fname):
+    """Convert a BlitzMail folder name into a reasonable file name."""
+    
+    return re.sub('\s+', '-', fname.lower()) + ".mbox"
+
+def check_addrs(msg, name_server):
+    """Expand BlitzMail style "To" and "From" headers.  Edits the msg
+    parameter in place.
+
+    Within the BlitzMail system, bare names are resolved by looking
+    them up in the Dartmouth Name Directory and using the MAILADDR
+    field to locate the preferred e-mail address.  This procedure uses
+    the EMAIL field to obtain a more global e-mail address.
+    """
+    if '@' not in msg['To'] and ',' not in msg['To']:
+        try:
+            info = name_server.lookup_unique(msg['to'], 'name', 'email')
+            msg.replace_header('To', '"%s" <%s>' % (info.name, info.email))
+        except dnd.DNDError, e:
+            pass
+    if '@' not in msg['From']:
+        try:
+            info = name_server.lookup_unique(msg['from'], 'name', 'email')
+            msg.replace_header('From', '"%s" <%s>' % (info.name, info.email))
+        except dnd.DNDError, e:
+            pass
+
+def make_message_summary(pos, msg):
+    """Make a nice human-readable summary of a message header.
+
+    pos  -- the position of the message in sequence (or None)
+    msg  -- the message to summarize
+
+    Returns a string.
+    """
+    if pos is None:
+        result = ''
+    else:
+        result = right_pad(str(pos) + ".)", 6)
+    
+    out = []
+    out.append('%-8d' % msg.message_id)
+    out.append('%11s' % time.strftime('%d-%b-%Y',
+                                      time.localtime(msg.delivered)))
+    out.append('%-5s' % format_size(msg.length))
+    out.append('%s' % dnd.dequote_string(msg.sender_name)[:30])
+
+    return result + ' | '.join(out)
+
+def right_pad(s, width, pad = ' '):
+    """Right-pad a string to the given width."""
+    return s + (max(0, width - len(s)) / len(pad)) * pad
+
+def make_folder_summary(folder):
+    """Make a nice human-readable summary of a folder.  Returns a
+    string.
+    """
+    result = " --"
+    result += right_pad(' "%s" ' % folder.name, 22, '-')
+    result += right_pad(' [id %d] ' % folder.id, 10, '-')
+    result += right_pad(' %d message%s ' %
+                        (folder.count, (folder.count <> 1 and "s") or ""),
+                        22, '-')
+    result += ' %s bytes' % format_size(folder.size)
+    return result
+
+def format_size(nbytes):
+    """Return a human-readable description of a number of bytes."""
+
+    if nbytes < 100000:
+        return str(nbytes)
+    elif nbytes < 1000000:
+        return '%dK' % int(float(nbytes) / 2**10)
+    else:
+        return '%dM' % int(float(nbytes) / 2**20)
+
+def main(args):
+    """This is the main driver program."""
+    import os, pwd, sys, time
+    import BlitzMail
+
+    from getpass import getpass
+    from getopt import getopt
+    from tempfile import mkstemp
+    from signal import signal as catch_signal, SIGINT, SIG_IGN
+
+    # Obtain default username
+    user_name   = os.getenv('USERNAME') or \
+                  pwd.getpwuid(os.getuid()).pw_gecos.split(',')[0]
+
+    # Defaults
+    folders     = None
+    all_folders = False       # If true, ignore named folders
+    fold_action = 'dump'      # Should be 'dump', 'list', or 'view'
+    trash_msg   = False       # Move messages to trash after download?
+    dnd_host    = None        # None means to use the default
+    debug       = os.getenv('DEBUG') is not None
+    
+    opts, args = getopt(args, 'ad:hltu:v',
+                        ( "all", "dnd=", "help", "list", "trash",
+                          "user=", "view" ))
+    
+    for key, arg in opts:
+        if key in ( '-h', '--help' ):
+            print >> sys.stderr, \
+                  "Usage: blitz2mbox [options] <foldername>*" \
+"""
+
+Command line options include:
+ -a | --all             - Request that all mailboxes be dumped.
+ -d | --dnd <dnd-host>  - Specify the name directory (DND) host name.
+ -h | --help            - Display this help message.
+ -l | --list            - List names of available folders.
+ -t | --trash           - Move messages to Trash after downloading them.
+ -u | --user <username> - Specify user to log in as.
+ -v | --view            - Display summaries in specified folders.
+"""
+            sys.exit(0)
+        elif key in ( '-a', '--all' ):
+            all_folders = True
+        elif key in ( '-u', '--user' ):            
+            user_name = arg
+        elif key in ( '-d', '--dnd' ):
+            dnd_host = arg
+        elif key in ( '-l', '--list' ):
+            fold_action = 'list'
+        elif key in ( '-t', '--trash' ):
+            trash_msg = True
+        elif key in ( '-v', '--view' ):
+            fold_action = 'view'
+
+    # If folder names are provided, use them
+    if len(args) > 0:
+        if all_folders:
+            print >> sys.stderr, \
+                  "All folders requested; ignoring specified names"
+        else:
+            folders = args
+    
+    user_passwd = None
+    if not os.getenv('DND_PASSWORD'):
+        user_passwd = getpass("Password for %s: " % user_name)
+
+    # Connect to the BlitzMail and DND servers
+    try:
+        blitz = BlitzMail.BlitzSession(dnd = dnd_host, debug = debug,
+                                       pw_env = 'DND_PASSWORD')
+    
+        blitz.sign_on(user_name, user_passwd, push_off = True)
+        name_server = dnd.DNDSession(server = dnd_host)
+    except BlitzMail.SessionError, e:
+        print >> sys.stderr, \
+              "Error connecting to BlitzMail: %s" % e
+        sys.exit(1)
+
+    # If all folders were requested, grab a list of their names here
+    if all_folders:
+        folders = blitz.get_folders()
+    elif folders is not None:
+        try:
+            folders = list(blitz.get_folder(f) for f in folders)
+        except IndexError:
+            print >> sys.stderr, "No such folder: %s" % f
+            blitz.close()
+            sys.exit(1)
+    
+    # If the "list" option was requested, only list the folder names and a
+    # summary of their contents.    
+    if fold_action in ('list', 'view'):
+        if folders is None:
+            folders = blitz.get_folders()
+        
+        for folder in folders:
+            try:
+                print make_folder_summary(folder)
+                if fold_action == 'view':
+                    if len(folder) == 0:
+                        print "<no messages>"
+                    else:
+                        for num, msg in enumerate(folder):
+                            print make_message_summary(num + 1, msg)
+                    
+                    print 
+            except BlitzMail.SessionError, e:
+                print >> sys.stderr, "Error reading folder %s: %s" % \
+                      (folder.name, e)
+    
+    elif fold_action == 'dump':
+        if folders is None:
+            folders = (blitz['In Box'],)
+        
+        for folder in folders:
+            try:
+                file_name = fname_to_filename(folder.name)
+                
+                fp = file(file_name, 'w')
+                print >> sys.stderr, \
+                      'Fetching %d message%s from ' \
+                      '"%s" to file "%s"' % \
+                      ( len(folder), (len(folder) <> 1 and "s") or "",
+                        folder.name, file_name )
+                
+                for num, summ in enumerate(folder):
+                    msg = summ.get_message()
+                    check_addrs(msg, name_server)
+                    fp.write(str(msg))
+                    fp.write('\n')
+                    print make_message_summary(num + 1, summ)
+                
+                fp.close()
+                if trash_msg:
+                    print >> sys.stderr, "-- moving messages to trash"
+                    for summ in folder:
+                        summ.move_to(blitz['Trash'])
+                print >> sys.stderr, '-- done with "%s"' % folder.name
+                print >> sys.stderr
+            except BlitzMail.SessionError, e:
+                print >> sys.stderr, "Error reading folder %s: %s" % \
+                      (fname, e)
+    
+    blitz.close()
+    sys.exit(0)
+
+if __name__ == '__main__':
+    import sys
+
+    main(sys.argv[1:])
+
+# Here there be dragons

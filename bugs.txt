@@ -1,0 +1,8 @@
+Bugs in the BlitzMail Protocol document:
+
+1. Section 4.2, the LIST command lists <ltype> as its first argument.
+   This is incorrect; it should be second, after the <list-name>.
+
+   This is also the case for the other list-related commands.
+
+
