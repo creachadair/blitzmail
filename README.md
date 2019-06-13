@@ -1,5 +1,8 @@
 # About the Python BlitzMail Library
 
+* N.B.: The BlitzMail system has been decommissioned, so the code here is
+  mostly of historical curiosity. Some of the links below no longer work.
+
 This is an implementation of the majority of the BlitzMail protocol in Python.
 If you are not familiar with BlitzMail, you probably do not need this, however,
 for more information, see:
