@@ -27,7 +27,6 @@ class BlitzFolder(object):
     ID (str), and you may iterate over the messages contained in the
     folder.
     """
-
     def __init__(self, session, info=None, id=None):
         """A folder may be constructed by giving a session object and
         either the BlitzMail server's info line for the folder, or the

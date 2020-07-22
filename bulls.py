@@ -27,7 +27,6 @@ regex = type(re.compile(''))  # Used in BulletinSession
 
 class Article(object):
     """This class represents a bulletin article."""
-
     def __init__(self, topic, id, xhead=None):
         """Create a new article given an ID number and optional
         summary header data."""
@@ -120,7 +119,6 @@ class Topic(object):
     """This class represents the various metadata about bulletins,
     such as their names, permissions, and article counts.
     """
-
     def __init__(self, session, init):
         self.name = None  # Usenet group name
         self.title = None  # Descriptive title for topic
@@ -335,7 +333,6 @@ class BulletinSession(Session):
     to use for user-name resolution.  To sign on, use the .sign_on()
     method.  To disconnect, use .close().  To reconnect the same user,
     e.g., after another client has forced us off, use .reconnect()."""
-
     def __init__(self, dnd=None, pw_env=None, debug=False):
         """Creates a new session associated with the specified name
         directory (given as a hostname).  If omitted a default DND

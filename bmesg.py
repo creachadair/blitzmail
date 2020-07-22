@@ -35,7 +35,6 @@ class BlitzHeader(object):
     a case-insensitive dictionary over the names of the header lines.
     The .keys() method will give you the header names known.
     """
-
     def __init__(self, text):
         if isinstance(text, basestring):
             self.data = text
@@ -129,7 +128,6 @@ class BlitzSummary(object):
     .get_message(),    creates an email.Message object of message
     .move_to(folder),  move the message to another BlitzFolder
     .select(),         select this message for other operations."""
-
     def __init__(self, folder, info=None, msg_id=None):
         self.folder = folder
         self.session = folder.session  # Is a weak reference
@@ -178,8 +176,10 @@ class BlitzSummary(object):
     def select(self):
         """Choose this message as the "current" message on the server."""
 
-        self.session()._cmd2(
-            'MESS', str(self.folder.id), str(self.message_id), sep='/')
+        self.session()._cmd2('MESS',
+                             str(self.folder.id),
+                             str(self.message_id),
+                             sep='/')
         self.session()._expect(10)
 
     def set_expiration(self, when):
@@ -190,11 +190,10 @@ class BlitzSummary(object):
         time is optional; hours should be in 24-hour format."""
 
         exp_time = self._parse_expire(when)
-        self.session()._cmd2(
-            'EXPR',
-            str(self.folder.id) + '/' + str(self.message_id),
-            str(exp_time),
-            sep=' ')
+        self.session()._cmd2('EXPR',
+                             str(self.folder.id) + '/' + str(self.message_id),
+                             str(exp_time),
+                             sep=' ')
         self.session()._expect(10)
         self.reload()
 
@@ -268,11 +267,10 @@ class BlitzSummary(object):
             if not selected:
                 self.select()
             seek = endpos - len(self.b_cache[1])
-            self.session()._cmd2(
-                'TEXT',
-                str(self.b_cache[0] + len(self.b_cache[1])),
-                str(seek),
-                sep=' ')
+            self.session()._cmd2('TEXT',
+                                 str(self.b_cache[0] + len(self.b_cache[1])),
+                                 str(seek),
+                                 sep=' ')
             (key, data) = self.session()._expect(50)
 
             size = int(data)
@@ -363,8 +361,10 @@ class BlitzSummary(object):
     def reload(self):
         """Re-load message summary information from the server."""
 
-        self.session()._cmd2(
-            'MSUM', str(self.folder.id), str(self.message_id), sep='/')
+        self.session()._cmd2('MSUM',
+                             str(self.folder.id),
+                             str(self.message_id),
+                             sep='/')
         (key, data) = self.session()._expect(00)
 
         self._parse_response(data)
@@ -437,7 +437,6 @@ class BlitzOutboundMessage(object):
     doesn't keep track of previously-added information; it is simply
     an interface to the server commands.
     """
-
     def __init__(self, session):
         self.session = weakref.ref(session)
 

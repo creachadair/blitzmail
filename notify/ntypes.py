@@ -13,7 +13,6 @@ from BlitzMail.berror import SessionError
 class Notification(tuple):
     """A class representing a notification message.
     """
-
     def type(self):
         """Return the type code for the notification.
         """
@@ -54,7 +53,6 @@ class Notification(tuple):
 
 class QElem(object):
     """Base class for packet queue elements."""
-
     def __init__(self, tid, data, addr, clk=None):
         self._orig = time.time()  # When packet was created
         self._time = 1  # Last time packet was used
@@ -96,7 +94,6 @@ class Request(QElem):
 
 class Register(Request):
     """Registration request."""
-
     def __init__(self, tid, who, svcs, port, addr):
         super(Register,
               self).__init__(tid, ('req', ['xo'], 1, tid, 'NR02',
@@ -105,7 +102,6 @@ class Register(Request):
 
 class Clear(Request):
     """Clear sticky notification request."""
-
     def __init__(self, tid, who, svc, addr):
         super(Clear, self).__init__(
             tid, ('req', ['xo'], 1, tid, 'CLEN', make_clear_req(svc, who)),
@@ -114,7 +110,6 @@ class Clear(Request):
 
 class Reset(Request):
     """Request to go find another notification server."""
-
     def __init__(self, tid, addr):
         super(Reset, self).__init__(
             tid,
@@ -124,16 +119,15 @@ class Reset(Request):
 
 class Notify(Request):
     """Notification request."""
-
     def __init__(self, tid, who, svc, msgid, data, addr):
-        super(Notify, self).__init__(
-            tid, ('req', ['xo'], 1, tid, 'NOTI',
-                  make_notify_req(svc, who, msgid, data)), addr)
+        super(Notify,
+              self).__init__(tid, ('req', ['xo'], 1, tid, 'NOTI',
+                                   make_notify_req(svc, who, msgid, data)),
+                             addr)
 
 
 class Response(QElem):
     """Transaction response entry."""
-
     def __init__(self, elt):
         if isinstance(elt, tuple):
             (kind, flags, seq, tid, udata, pdata, addr) = elt
@@ -147,7 +141,6 @@ class Response(QElem):
 
 class Release(QElem):
     """Transaction release entry."""
-
     def __init__(self, elt):
         (kind, flags, seq, tid, udata, pdata) = elt.data()
         addr = elt.addr()
@@ -181,7 +174,6 @@ class ATPObject(object):
       do_rsp(tobj), do_rel(tobj)
          tobj    -- transaction object (QElem)
     """
-
     def __init__(self, port=0, debug=False):
         """Initialize internal data structures.
 

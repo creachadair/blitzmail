@@ -34,7 +34,6 @@ class Session(object):
     You may subclass this object to implement specific functionality;
     this class provides only some basic infrastructure.
     """
-
     def __init__(self):
         """Set up a new unconnected session."""
         self._conn = None  # socket object
@@ -258,7 +257,6 @@ class BlitzSession(Session):
                       .set_vacation_msg(text)
                       .clear_vacation_msg()
     """
-
     def __init__(self, dnd=None, pw_env=None, debug=False):
         """Creates a new unconnected BlitzMail session.
 

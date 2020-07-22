@@ -45,7 +45,6 @@ class NotifyClient(ATPObject):
     want to receive notifications ofr multiple users, you should
     create one instance of this class for each user.
     """
-
     def __init__(self,
                  uid,
                  host,

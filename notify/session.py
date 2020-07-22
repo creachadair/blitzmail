@@ -23,7 +23,6 @@ class NotifySession(Session):
     method. To disconnect, use .close().  To reconnect the same user,
     use .reconnect().
     """
-
     def __init__(self,
                  server=None,
                  port=default_notify_port,
@@ -197,8 +196,8 @@ class NotifySession(Session):
                 else:
                     raise ValueError("Unknown service code: %s" % svc)
 
-        arg = ','.join((str(uid), str(ip), str(port)) + tuple(
-            str(s) for s in codes))
+        arg = ','.join((str(uid), str(ip), str(port)) +
+                       tuple(str(s) for s in codes))
         self._cmd1('CLIENT', arg)
         self._expect(200)
 
@@ -224,8 +223,8 @@ class NotifySession(Session):
             data = '\x00'
         elif type <> 0:
             if len(data) > 255:
-                raise ValueError(
-                    "Notification data too long (%d, max 255)" % len(data))
+                raise ValueError("Notification data too long (%d, max 255)" %
+                                 len(data))
             data = chr(len(data)) + data  # Pascal-style string
 
         if msg_id is None:
@@ -241,8 +240,11 @@ class NotifySession(Session):
     def post_reset(self, uid=None):
         """Post a reset control message.
         """
-        return self.post_notify(
-            'reset', data='\x00\x00\x00\x01', uid=uid, msg_id=0, sticky=False)
+        return self.post_notify('reset',
+                                data='\x00\x00\x00\x01',
+                                uid=uid,
+                                msg_id=0,
+                                sticky=False)
 
     def keep_alive(self):
         """Send a NOOP to the server, to keep the connexion alive.

@@ -15,7 +15,6 @@ class ProtocolError(SessionError):
     interaction with a server.  The `key' field gives the numeric
     error code, the `value' field gives the descriptive text returned
     by the server."""
-
     def __init__(self, key, value=''):
         self.key = key
         self.value = value

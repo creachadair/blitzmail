@@ -19,7 +19,6 @@ from packet import *
 
 class Notice(object):
     """Represents a notice awaiting delivery."""
-
     def __init__(self, uid, type, msgid, sticky, data=None, rowid=None):
         """Construct a new notice object.
         
@@ -46,7 +45,6 @@ class Notice(object):
 
 class Client(object):
     """Represents a client desiring notification."""
-
     def __init__(self, uid, ip, port, svcs):
         """Create a new client record.
 
@@ -103,7 +101,6 @@ class NotifyTCPHandler(StreamRequestHandler):
 
     See also:  class NotifyTCPServer
     """
-
     def cmd_unknown(self, cmd, args):
         """Handles commands which are not otherwise known."""
         self.wfile.write('500 Unknown command: %s\r\n' % cmd.upper())
@@ -385,7 +382,6 @@ class NotifyTCPHandler(StreamRequestHandler):
 class NotifyUDPServer(ATPObject):
     """Implements the UDP interface of a BlitzMail notification server.
     """
-
     def __init__(self, db, port=2154, maxage=600, debug=False):
         """Construct a notification server on the local host at the
         specified port number.
@@ -567,7 +563,6 @@ class NotifyUDPServer(ATPObject):
 
 class NoticeDB(object):
     """A persistent database of sticky notifications."""
-
     def __init__(self, path):
         """Create or open the specified database.  If the notices
         table does not already exist, it is created.
@@ -652,7 +647,6 @@ class NotifyTCPServer(ThreadingTCPServer):
 
     See also:  class NotifyTCPHandler
     """
-
     def __init__(self,
                  db,
                  udp=None,
@@ -824,12 +818,11 @@ Options include:
         db_path = args[0]
 
     udp_server = NotifyUDPServer(NoticeDB(db_path), port=udp_port, debug=debug)
-    tcp_server = NotifyTCPServer(
-        NoticeDB(db_path),
-        udp=udp_server,
-        port=tcp_port,
-        admin=admin_uid,
-        debug=debug)
+    tcp_server = NotifyTCPServer(NoticeDB(db_path),
+                                 udp=udp_server,
+                                 port=tcp_port,
+                                 admin=admin_uid,
+                                 debug=debug)
     tcp_server.start()
 
 

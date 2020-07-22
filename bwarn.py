@@ -19,7 +19,6 @@ class BlitzWarning(object):
     .message field that contains data provided by the server; the
     subclasses add additional behaviours as necessary.
     """
-
     def __init__(self, msg):
         self.message = msg
 
@@ -39,7 +38,6 @@ class BlitzNewMailWarning(BlitzWarning):
     .folder_id  -- the folder ID in which the message arrived
     .position   -- the position of the new message in the folder
     """
-
     def __init__(self, info):
         super(BlitzNewMailWarning, self).__init__(info)
         self._parse(info)

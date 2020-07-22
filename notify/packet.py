@@ -188,8 +188,8 @@ def parse_atp_packet(pkt):
     pdata = pkt[ATP_HEADER_LEN + 1:]
 
     if ddp_tag <> DDP_ATP_PACKET:
-        raise ValueError(
-            "Invalid packet data:  Packet type is not ATP (%s)" % ddp_tag)
+        raise ValueError("Invalid packet data:  Packet type is not ATP (%s)" %
+                         ddp_tag)
 
     knd = kfl & 0xC0  # Extract ATP type
     flg = kfl & 0x3F  # Extract ATP flags
