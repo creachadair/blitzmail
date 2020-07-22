@@ -126,7 +126,7 @@ class NotifySession(Session):
             self._saddr = (socket.gethostbyname(server), default_notify_port)
             self._conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self._conn.connect(self._saddr)
-        except socket.error, e:
+        except socket.error as e:
             raise SessionError(str(e))
 
         self._input = self._conn.makefile()

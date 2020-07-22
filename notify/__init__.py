@@ -9,7 +9,7 @@ from session import *
 from client import *
 try:
     from notifyd import *
-except ImportError, e:
+except ImportError as e:
     pass
 
 # Here there be dragons

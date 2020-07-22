@@ -129,7 +129,7 @@ class Session(object):
             raise NotConnectedError("session is not connected")
         try:
             self._conn.send(data)
-        except socket.error, e:
+        except socket.error as e:
             if e[0] == errno.EPIPE:
                 self._close()
                 raise LostConnectionError("Broken pipe")
@@ -144,7 +144,7 @@ class Session(object):
         self.dprint('[reading %d bytes]', size)
         try:
             data = self._input.read(size)
-        except socket.error, e:
+        except socket.error as e:
             if e[0] == errno.ECONNRESET:
                 self._close()
                 raise LostConnectionError("connection closed by remote host")
@@ -177,7 +177,7 @@ class Session(object):
         """
         try:
             line = self._input.readline()
-        except socket.error, e:
+        except socket.error as e:
             if e[0] == errno.ECONNRESET:
                 self._close()
                 raise LostConnectionError("connection closed by remote host")
@@ -384,7 +384,7 @@ class BlitzSession(Session):
                            default_server_port)
             self._conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self._conn.connect(self._saddr)
-        except socket.error, e:
+        except socket.error as e:
             raise SessionError(str(e))
 
         self._input = self._conn.makefile()

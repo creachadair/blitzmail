@@ -34,7 +34,7 @@ def main(args):
         elif opt in ('-f', '--file'):
             try:
                 input_file = file(arg, 'rU')
-            except IOError, e:
+            except IOError as e:
                 print >> sys.stderr, "Error opening `%s': %s" % \
                       (arg, e)
                 sys.exit(1)

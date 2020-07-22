@@ -201,7 +201,7 @@ class NotifyTCPHandler(StreamRequestHandler):
 
         try:
             self.resp = self.dnd.begin_validate(args[0], 'uid')
-        except dnd.DNDProtocolError, e:
+        except dnd.DNDProtocolError as e:
             self.wfile.write('550 %s\r\n' % e.value)
             self.dnd.close()
             self.dnd = self.resp = None
@@ -228,12 +228,12 @@ class NotifyTCPHandler(StreamRequestHandler):
                 self.server.auth = int(result.uid)
                 self._debug('@ Validated user: %s', result.uid)
                 self.wfile.write('200 User validated.\r\n')
-            except dnd.DNDProtocolError, e:
+            except dnd.DNDProtocolError as e:
                 self.wfile.write('551 %s\r\n' % e.value)
         finally:
             try:
                 self.dnd.close()
-            except dnd.DNDError, AttributeError:
+            except dnd.DNDError as AttributeError:
                 pass
             self.dnd = self.resp = None
 
@@ -258,12 +258,12 @@ class NotifyTCPHandler(StreamRequestHandler):
                 self.server.auth = int(result.uid)
                 self._debug('@ Validated user: %s', result.uid)
                 self.wfile.write('200 User validated.\r\n')
-            except dnd.DNDProtocolError, e:
+            except dnd.DNDProtocolError as e:
                 self.wfile.write('551 %s\r\n' % e.value)
         finally:
             try:
                 self.dnd.close()
-            except dnd.DNDError, AttributeError:
+            except dnd.DNDError as AttributeError:
                 pass
             self.dnd = self.resp = None
 
@@ -367,7 +367,7 @@ class NotifyTCPHandler(StreamRequestHandler):
                     self.dnd = self.resp = None
                 else:
                     getattr(self, hname, self.cmd_unknown)(cmd, args)
-        except socket.error, e:
+        except socket.error as e:
             pass
 
         self.wfile.close()
@@ -792,7 +792,7 @@ Options include:
     try:
         opts, args = getopt.getopt(argv, 'a:dht:u:',
                                    ('admin=', 'help', 'tcp=', 'udp=', 'debug'))
-    except getopt.GetoptError, e:
+    except getopt.GetoptError as e:
         print >> sys.stderr, "Error: %s" % e
         usage(False)
         return

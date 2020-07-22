@@ -491,7 +491,7 @@ class BulletinSession(Session):
                            default_server_port)
             self._conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self._conn.connect(self._saddr)
-        except socket.error, e:
+        except socket.error as e:
             raise SessionError(str(e))
 
         self._input = self._conn.makefile()

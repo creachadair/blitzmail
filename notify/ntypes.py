@@ -311,7 +311,7 @@ class ATPObject(object):
             while True:
                 try:
                     (rd, wr, ex) = select.select([fn], (), ())
-                except select.error, e:
+                except select.error as e:
                     self._debug("? Select failed on fd = %s:  %s", fn, e[1])
                     break
 
