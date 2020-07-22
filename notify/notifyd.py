@@ -125,7 +125,7 @@ class NotifyTCPHandler(StreamRequestHandler):
         """CLEAR <uid> <type> -- clear sticky notifications for the
         specified user <uid> and type code <type>.
         """
-        if len(args) <> 2:
+        if len(args) != 2:
             self.wfile.write('501 Wrong number of arguments.\r\n')
             return
 
@@ -155,7 +155,7 @@ class NotifyTCPHandler(StreamRequestHandler):
         notice is considered a "broadcast" to all registered clients.
         This is a nonstandard feature of this implementation.
         """
-        if len(args) <> 5:
+        if len(args) != 5:
             self.wfile.write('501 Wrong number of arguments.\r\n')
             return
 
@@ -186,7 +186,7 @@ class NotifyTCPHandler(StreamRequestHandler):
 
         Begin authentication of a user.
         """
-        if len(args) <> 1:
+        if len(args) != 1:
             self.wfile.write('501 Wrong number of arguments.\r\n')
             return
 
@@ -216,7 +216,7 @@ class NotifyTCPHandler(StreamRequestHandler):
         Encoded in octal digits as per the DND protocol.
         """
         try:
-            if len(args) <> 1:
+            if len(args) != 1:
                 self.wfile.write('501 Wrong number of arguments.\r\n')
                 return
             elif not re.match(r'[0-7]{24}$', args[0]):
@@ -245,7 +245,7 @@ class NotifyTCPHandler(StreamRequestHandler):
         password is encrypted before being sent to the DND.
         """
         try:
-            if len(args) <> 1:
+            if len(args) != 1:
                 self.wfile.write('501 Wrong number of arguments.\r\n')
                 return
             elif len(args[0]) > 8:
@@ -308,7 +308,7 @@ class NotifyTCPHandler(StreamRequestHandler):
             self.wfile.write('554 Permission denied.\r\n')
             return
 
-        if len(args) <> 1:
+        if len(args) != 1:
             self.wfile.write('501 Wrong number of arguments.\r\n')
             return
 

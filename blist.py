@@ -59,7 +59,7 @@ class BlitzList(object):
 
     def _save_members(self, type, lst):
         udata = str.join('\n', lst)
-        if len(udata) == 0 or udata[-1] <> '\n':
+        if len(udata) == 0 or udata[-1] != '\n':
             udata += '\n'
 
         self.session()._cmd1('LDAT', '%d' % len(udata))
@@ -92,7 +92,7 @@ class BlitzList(object):
         out = []
         (key, data) = self.session()._expect(00, 01)
 
-        while key <> 0:
+        while key != 0:
             out.append(data)
             (key, data) = self.session()._expect(00, 01)
 
@@ -106,9 +106,9 @@ class BlitzGroupList(BlitzList):
 
         if perms is not None:
             perms = int(perms)
-            self.read = (perms & _list_read <> 0)
-            self.write = (perms & _list_write <> 0)
-            self.send = (perms & _list_send <> 0)
+            self.read = (perms & _list_read != 0)
+            self.write = (perms & _list_write != 0)
+            self.send = (perms & _list_send != 0)
         else:
             self.read = None
             self.write = None

@@ -221,7 +221,7 @@ class NotifySession(Session):
 
         if data is None:
             data = '\x00'
-        elif type <> 0:
+        elif type != 0:
             if len(data) > 255:
                 raise ValueError("Notification data too long (%d, max 255)" %
                                  len(data))

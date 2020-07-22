@@ -427,7 +427,7 @@ class ATPObject(object):
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
         # If the user specified a local port, bind to it
-        if self.port <> 0:
+        if self.port != 0:
             self._socket.bind(('0.0.0.0', self.port))
 
         self._reader = threading.Thread(target=self._receiver)

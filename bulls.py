@@ -231,11 +231,11 @@ class Topic(object):
             if r.find('-') >= 0:
                 (lo, hi) = r.split('-')
                 for id in xrange(int(lo), int(hi) + 1):
-                    if id <> 0:
+                    if id != 0:
                         self._rcache[id] = True
             elif r:
                 r = int(r)
-                if r <> 0:
+                if r != 0:
                     self._rcache[r] = True
 
         self._loaded = True
@@ -272,7 +272,7 @@ class Topic(object):
         needed.  Does the selection unconditionally, if force =
         True."""
 
-        if self._session().g_select <> self.name or force:
+        if self._session().g_select != self.name or force:
             self._session()._cmd1('GROUP', self.name)
             self._session()._expect(211)
             self._session().g_select = self.name

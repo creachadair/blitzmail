@@ -334,7 +334,7 @@ class BlitzSummary(object):
         cat = {}
 
         (key, data) = self.session()._expect(00, 01)
-        while key <> 0:
+        while key != 0:
             tag, rest = data[0], data[2:]
 
             if not cat.has_key(tag):
@@ -395,10 +395,10 @@ class BlitzSummary(object):
         (key, data) = self.session()._expect(01)
 
         new_exp = int(data)
-        if new_exp <> -1 and op <> 'COPY':
+        if new_exp != -1 and op != 'COPY':
             self.expires = new_exp
 
-        while key <> 0:
+        while key != 0:
             (key, data) = self.session()._expect(00, 01)
 
         self.folder.touch()

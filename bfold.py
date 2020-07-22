@@ -209,7 +209,7 @@ class BlitzFolder(object):
         self.session()._cmd2('FSUM', str(self.id), rng, sep=' ')
         (key, data) = self.session()._expect(00, 01)
 
-        while key <> 0:
+        while key != 0:
             out.append(bmesg.BlitzSummary(self, data))
             (key, data) = self.session()._expect(00, 01)
 

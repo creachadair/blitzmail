@@ -163,7 +163,7 @@ def make_atp_packet(kind, flags, seqno, tid, udata, pdata=None):
     seq = int(seqno)
     tid = int(tid)
 
-    if not isinstance(udata, str) or len(udata) <> 4:
+    if not isinstance(udata, str) or len(udata) != 4:
         raise ValueError("User data must be a 4-character string")
 
     out = _struct.pack('>BBBH4s', DDP_ATP_PACKET, knd | flg, seq, tid, udata)
@@ -187,7 +187,7 @@ def parse_atp_packet(pkt):
               _struct.unpack('>BBBH4s', pkt[:ATP_HEADER_LEN + 1])
     pdata = pkt[ATP_HEADER_LEN + 1:]
 
-    if ddp_tag <> DDP_ATP_PACKET:
+    if ddp_tag != DDP_ATP_PACKET:
         raise ValueError("Invalid packet data:  Packet type is not ATP (%s)" %
                          ddp_tag)
 
@@ -201,7 +201,7 @@ def parse_atp_packet(pkt):
             break
 
     # Convert flag bits into a list of names
-    flags = [name for (name, val) in ATP_FLAG.iteritems() if flg & val <> 0]
+    flags = [name for (name, val) in ATP_FLAG.iteritems() if flg & val != 0]
 
     return (knd, flags, seq, tid, udata, pdata)
 

@@ -469,7 +469,7 @@ class BlitzSession(Session):
         if key == 2:
             return out
 
-        while key <> 0:
+        while key != 0:
             lname, access = data.split(',')
             out.append(blist.BlitzGroupList(self, lname, access))
             key, data = self._expect(00, 01)
@@ -526,7 +526,7 @@ class BlitzSession(Session):
         if key == 2:
             return out
 
-        while key <> 0:
+        while key != 0:
             out.append(blist.BlitzPrivateList(self, data))
             (key, data) = self._expect(00, 01)
 
@@ -575,7 +575,7 @@ class BlitzSession(Session):
         out = []
         self._cmd0('FLIS')
         (key, data) = self._expect(00, 01)
-        while key <> 0:
+        while key != 0:
             out.append(bfold.BlitzFolder(self, info=data))
             key, data = self._expect(00, 01)
 
@@ -802,7 +802,7 @@ class BlitzSession(Session):
         if value not in [(k % 100) for k in wanted]:
             raise ProtocolError(key, data)
         else:
-            self.warn_flag = (flag <> 0)
+            self.warn_flag = (flag != 0)
             return value, data
 
 
